@@ -1,0 +1,17 @@
+{
+    "name": "NiceBootstrap.Editor",
+    "rootNamespace": "",
+    "references": [
+        "GUID:cfd4873bcc54d8849b7a80c9f7b893ae",
+        "UnityEditor.PackageManager"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

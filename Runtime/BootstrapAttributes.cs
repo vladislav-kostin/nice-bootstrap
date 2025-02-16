@@ -1,0 +1,37 @@
+﻿using System;
+
+namespace VK.Bootstrap
+{
+	[AttributeUsage(AttributeTargets.Class)]
+	public class BootstrapBefore : Attribute
+	{
+		public Type Type { get; private set; }
+
+		public BootstrapBefore(Type type)
+		{
+			Type = type;
+		}
+	}
+
+	[AttributeUsage(AttributeTargets.Class)]
+	public class BootstrapAfter : Attribute
+	{
+		public Type Type { get; private set; }
+
+		public BootstrapAfter(Type type)
+		{
+			Type = type;
+		}
+	}
+
+	[AttributeUsage(AttributeTargets.Class)]
+	public class BootstrapOrder : Attribute
+	{
+		public int Order { get; private set; }
+
+		public BootstrapOrder(int order)
+		{
+			Order = order;
+		}
+	}
+}

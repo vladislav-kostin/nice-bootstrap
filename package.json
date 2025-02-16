@@ -1,0 +1,11 @@
+{
+  "name": "com.vladislav-kostin.nice-bootstrap",
+  "version": "0.1.0",
+  "displayName": "Nice Bootstrap",
+  "description": "A Unity package example.",
+  "author": {
+    "name": "Vlad Kostin",
+    "url": "https://github.com/vladislav-kostin/nice-bootstrap"
+  },
+  "hideInEditor": false
+}
