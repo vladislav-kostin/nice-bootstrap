@@ -8,4 +8,7 @@
     "url": "https://github.com/vladislav-kostin/nice-bootstrap"
   },
   "hideInEditor": false
+  "dependencies": {
+    "com.unity.addressables": "^1.0.0"
+  }
 }
