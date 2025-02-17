@@ -1,6 +1,6 @@
 {
   "name": "com.vladislav-kostin.nice-bootstrap",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "displayName": "Nice Bootstrap",
   "description": "Simple bootstrap system. Automatically instantiate prefabs from a bootstrap folder in a controlled order.",
   "author": {
