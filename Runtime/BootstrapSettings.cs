@@ -24,7 +24,6 @@ namespace VK.Bootstrap
 		{
 			if (File.Exists(SettingsPath))
 			{
-				Debug.Log("loading settings " + SettingsPath);
 				string json = File.ReadAllText(SettingsPath);
 				_settings = JsonUtility.FromJson<BootstrapSettingsData>(json);
 			}

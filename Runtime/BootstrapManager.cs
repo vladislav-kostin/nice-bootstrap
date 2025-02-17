@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.AddressableAssets;
+using UnityEngine.ResourceManagement.AsyncOperations;
 using System.Collections.Generic;
 using System.Linq;
 using System;
@@ -16,7 +17,7 @@ namespace VK.Bootstrap
         static void Bootstrap()
         {
             Addressables.InitializeAsync().WaitForCompletion();
-            if (BootstrapFolderExists())
+            if (BootstrapAddressExists())
             {
                 CreateBootstrapRootObject();
                 GenerateBootstrapObjectData();
@@ -27,26 +28,15 @@ namespace VK.Bootstrap
             }
         }
         
-        private static bool BootstrapFolderExists()
+        private static bool BootstrapAddressExists()
         {
-            var address = BootstrapSettings.Settings.BootstrapFolderAddress;
-
-            if (String.IsNullOrEmpty(address))
-            {
-                Debug.Log("Bootstrap folder address is empty");
-                return false;
-            }
-
-            var handle = Addressables.LoadResourceLocationsAsync(address);
-            handle.WaitForCompletion();
-
-            if (handle.Status == UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationStatus.Succeeded && handle.Result.Count > 0)
+            if (!string.IsNullOrEmpty(BootstrapSettings.Settings.BootstrapFolderAddress))
             {
                 return true;
             }
             else
             {
-                Debug.LogError($"Bootstrap folder '{address}' not found or is empty.");
+                Debug.Log("Bootstrap address is empty. Skipping bootstrap.");
                 return false;
             }
         }
