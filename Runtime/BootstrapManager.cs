@@ -15,19 +15,40 @@ namespace VK.Bootstrap
         [RuntimeInitializeOnLoadMethod]
         static void Bootstrap()
         {
-            LoadSettings();
             Addressables.InitializeAsync().WaitForCompletion();
-            CreateBootstrapRootObject();
-            GenerateBootstrapObjectData();
-            SortObjectsByDependencies();
-            InstantiatePrefabs();
-            ReorderSpawnedTransforms(); // Reorder objects to match folder and file hierarchy
-            OnCompleted?.Invoke();
+            if (BootstrapFolderExists())
+            {
+                CreateBootstrapRootObject();
+                GenerateBootstrapObjectData();
+                SortObjectsByDependencies();
+                InstantiatePrefabs();
+                ReorderSpawnedTransforms(); 
+                OnCompleted?.Invoke();
+            }
         }
-
-        private static void LoadSettings()
+        
+        private static bool BootstrapFolderExists()
         {
-            BootstrapSettings.LoadSettings();
+            var address = BootstrapSettings.Settings.BootstrapFolderAddress;
+
+            if (String.IsNullOrEmpty(address))
+            {
+                Debug.Log("Bootstrap folder address is empty");
+                return false;
+            }
+
+            var handle = Addressables.LoadResourceLocationsAsync(address);
+            handle.WaitForCompletion();
+
+            if (handle.Status == UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationStatus.Succeeded && handle.Result.Count > 0)
+            {
+                return true;
+            }
+            else
+            {
+                Debug.LogError($"Bootstrap folder '{address}' not found or is empty.");
+                return false;
+            }
         }
         
         private static void CreateBootstrapRootObject()
@@ -154,6 +175,7 @@ namespace VK.Bootstrap
             }
         }
 
+        // Reorder objects to match folder and file hierarchy
         static void ReorderSpawnedTransforms()
         {
             // Group objects by their parent
