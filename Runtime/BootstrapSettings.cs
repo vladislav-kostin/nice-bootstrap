@@ -5,10 +5,20 @@ namespace VK.Bootstrap
 {
 	public static class BootstrapSettings
 	{
-		private static readonly string SettingsPath = "Library/NiceBootstrap/settings.json";
-		private static BootstrapSettingsData _settings = new BootstrapSettingsData();
+		private static readonly string SettingsPath = "ProjectSettings/BootstrapSettings.json";
+		private static BootstrapSettingsData _settings;
 
-		public static BootstrapSettingsData Settings => _settings;
+		public static BootstrapSettingsData Settings
+		{
+			get
+			{
+				if (_settings == null)
+				{
+					LoadSettings();
+				}
+				return _settings;
+			}
+		}
 
 		public static void LoadSettings()
 		{
@@ -21,6 +31,7 @@ namespace VK.Bootstrap
 			else
 			{
 				_settings = new BootstrapSettingsData();
+				SaveSettings();
 			}
 		}
 
@@ -35,7 +46,7 @@ namespace VK.Bootstrap
 	[System.Serializable]
 	public class BootstrapSettingsData
 	{
-		public string BootstrapFolderAddress = "Bootstrap";
+		public string BootstrapFolderAddress = "Assets/Bootstrap";
 		public bool DontDestroyOnLoad = false;
 	}
 }
