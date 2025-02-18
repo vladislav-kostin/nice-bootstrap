@@ -1,336 +1,366 @@
-using UnityEngine;
-using UnityEngine.AddressableAssets;
-using UnityEngine.ResourceManagement.AsyncOperations;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System;
+using UnityEngine;
+using UnityEngine.AddressableAssets;
+using Object = UnityEngine.Object;
 
 namespace VK.Bootstrap
 {
-    public static class BootstrapManager
-    {
-        private static List<BootstrapObjectData> _bootstrapObjects = new();
-        private static GameObject _bootstrapRootObject;
-        public static event Action OnCompleted;
+	public static class BootstrapManager
+	{
+		private static List<BootstrapObjectData> _bootstrapObjects = new();
+		private static GameObject _bootstrapRootObject;
+		public static event Action OnCompleted;
 
-        [RuntimeInitializeOnLoadMethod]
-        static void Bootstrap()
-        {
-            Addressables.InitializeAsync().WaitForCompletion();
-            if (BootstrapAddressExists())
-            {
-                CreateBootstrapRootObject();
-                GenerateBootstrapObjectData();
-                SortObjectsByDependencies();
-                InstantiatePrefabs();
-                ReorderSpawnedTransforms(); 
-                OnCompleted?.Invoke();
-            }
-        }
-        
-        private static bool BootstrapAddressExists()
-        {
-            if (!string.IsNullOrEmpty(BootstrapSettings.Settings.BootstrapFolderAddress))
-            {
-                return true;
-            }
-            else
-            {
-                Debug.Log("Bootstrap address is empty. Skipping bootstrap.");
-                return false;
-            }
-        }
-        
-        private static void CreateBootstrapRootObject()
-        {
-            _bootstrapRootObject = new GameObject(BootstrapSettings.Settings.BootstrapFolderAddress.Split('/').Last());
-            if (BootstrapSettings.Settings.DontDestroyOnLoad)
-            {
-                GameObject.DontDestroyOnLoad(_bootstrapRootObject);
-            }
-        }
+		[RuntimeInitializeOnLoadMethod]
+		private static void Bootstrap()
+		{
+			Addressables.InitializeAsync().WaitForCompletion();
+			if (BootstrapAddressExists())
+			{
+				CreateBootstrapRootObject();
+				GenerateBootstrapObjectData();
+				SortObjectsByDependencies();
+				InstantiatePrefabs();
+				ReorderSpawnedTransforms();
+				OnCompleted?.Invoke();
+			}
+		}
 
-        static void GenerateBootstrapObjectData()
-        {
-            _bootstrapObjects.Clear();
-            var assetsWithLocations = AddressableUtility.LoadAssetsWithLocationsAtPath<GameObject>(BootstrapSettings.Settings.BootstrapFolderAddress);
+		private static bool BootstrapAddressExists()
+		{
+			if (!string.IsNullOrEmpty(BootstrapSettings.Settings.BootstrapFolderAddress))
+			{
+				return true;
+			}
 
-            // Create directory objects first
-            var allFolderPaths = assetsWithLocations
-                .Select(asset => GetHierarchyPath(asset.Location.ToString()))
-                .Where(path => !string.IsNullOrEmpty(path))
-                .Distinct()
-                .OrderBy(path => path) // Sort folder paths alphabetically
-                .ToList();
+			Debug.Log("Bootstrap address is empty. Skipping bootstrap.");
+			return false;
+		}
 
-            foreach (var folderPath in allFolderPaths)
-            {
-                string[] folders = folderPath.Split('/');
-                string currentPath = "";
-                DirectoryObjectData parentData = null;
+		private static void CreateBootstrapRootObject()
+		{
+			_bootstrapRootObject = new GameObject(BootstrapSettings.Settings.BootstrapFolderAddress.Split('/').Last());
+			if (BootstrapSettings.Settings.DontDestroyOnLoad)
+			{
+				Object.DontDestroyOnLoad(_bootstrapRootObject);
+			}
+		}
 
-                foreach (var folder in folders)
-                {
-                    currentPath = string.IsNullOrEmpty(currentPath) ? folder : $"{currentPath}/{folder}";
+		private static void GenerateBootstrapObjectData()
+		{
+			_bootstrapObjects.Clear();
+			var assetsWithLocations = AddressableUtility.LoadAssetsWithLocationsAtPath<GameObject>(BootstrapSettings.Settings.BootstrapFolderAddress);
 
-                    if (!_bootstrapObjects.OfType<DirectoryObjectData>().Any(d => d.HierarchyPath == currentPath))
-                    {
-                        var folderObject = new GameObject(folder);
-                        var folderObjectTransform = folderObject.transform;
-                        folderObjectTransform.parent = parentData?.Transform ?? _bootstrapRootObject.transform;
+			// Create directory objects first
+			var allFolderPaths = assetsWithLocations.Select(asset => GetHierarchyPath(asset.Location.ToString())).Where(path => !string.IsNullOrEmpty(path)).Distinct()
+				.OrderBy(path => path) // Sort folder paths alphabetically
+				.ToList();
 
-                        var directoryData = new DirectoryObjectData
-                        {
-                            HierarchyPath = currentPath,
-                            Object = folderObject,
-                            Transform = folderObjectTransform,
-                            ParentDirectoryObjectData = parentData
-                        };
-                        _bootstrapObjects.Add(directoryData);
+			if (allFolderPaths.Count == 0)
+			{
+				Debug.LogError($"No prefabs found in the given bootstrap address {BootstrapSettings.Settings.BootstrapFolderAddress}" +
+				               "Make sure that address in [Project Settings > Bootstrap Settings] matches your bootstrap folder address.");
+			}
 
-                        parentData = directoryData;
-                    }
-                    else
-                    {
-                        parentData = _bootstrapObjects.OfType<DirectoryObjectData>().First(d => d.HierarchyPath == currentPath);
-                    }
-                }
-            }
+			foreach (var folderPath in allFolderPaths)
+			{
+				var folders = folderPath.Split('/');
+				var currentPath = "";
+				DirectoryObjectData parentData = null;
 
-            // Create prefab objects
-            foreach (var asset in assetsWithLocations)
-            {
-                var hierarchyPath = GetHierarchyPath(asset.Location.ToString());
+				foreach (var folder in folders)
+				{
+					currentPath = string.IsNullOrEmpty(currentPath) ? folder : $"{currentPath}/{folder}";
 
-                var prefabObjectData = new PrefabObjectData
-                {
-                    PrefabWithLocation = asset,
-                    HierarchyPath = hierarchyPath,
-                    MainScriptType = asset.Asset.GetComponent<MonoBehaviour>()?.GetType()
-                };
-                GatherOrderAttributes(prefabObjectData);
-                _bootstrapObjects.Add(prefabObjectData);
-            }
-        }
+					if (!_bootstrapObjects.OfType<DirectoryObjectData>().Any(d => d.HierarchyPath == currentPath))
+					{
+						var folderObject = new GameObject(folder);
+						var folderObjectTransform = folderObject.transform;
+						folderObjectTransform.parent = parentData?.Transform ?? _bootstrapRootObject.transform;
 
-        static string GetHierarchyPath(string location)
-        {
-            var hierarchyPath = location.Substring(BootstrapSettings.Settings.BootstrapFolderAddress.Length + 1);
+						var directoryData = new DirectoryObjectData
+						{
+							HierarchyPath = currentPath,
+							Object = folderObject,
+							Transform = folderObjectTransform,
+							ParentDirectoryObjectData = parentData
+						};
+						_bootstrapObjects.Add(directoryData);
 
-            // Remove the filename, leaving only the folder structure (if any)
-            int lastSlashIndex = hierarchyPath.LastIndexOf('/');
-            return lastSlashIndex != -1 ? hierarchyPath.Substring(0, lastSlashIndex) : "";
-        }
+						parentData = directoryData;
+					}
+					else
+					{
+						parentData = _bootstrapObjects.OfType<DirectoryObjectData>().First(d => d.HierarchyPath == currentPath);
+					}
+				}
+			}
 
-        static void GatherOrderAttributes(BootstrapObjectData bootstrapObjectData)
-        {
-            if (bootstrapObjectData.MainScriptType != null)
-            {
-                var orderAttr = (BootstrapOrder)Attribute.GetCustomAttribute(bootstrapObjectData.MainScriptType, typeof(BootstrapOrder));
-                bootstrapObjectData.Order = orderAttr?.Order ?? 0;
+			// Create prefab objects
+			foreach (var asset in assetsWithLocations)
+			{
+				var hierarchyPath = GetHierarchyPath(asset.Location.ToString());
 
-                var beforeAttrs = bootstrapObjectData.MainScriptType.GetCustomAttributes(typeof(BootstrapBefore), true).Cast<BootstrapBefore>();
-                var afterAttrs = bootstrapObjectData.MainScriptType.GetCustomAttributes(typeof(BootstrapAfter), true).Cast<BootstrapAfter>();
+				var prefabObjectData = new PrefabObjectData
+				{
+					PrefabWithLocation = asset,
+					HierarchyPath = hierarchyPath,
+					MainScriptType = asset.Asset.GetComponent<MonoBehaviour>()?.GetType()
+				};
+				GatherOrderAttributes(prefabObjectData);
+				_bootstrapObjects.Add(prefabObjectData);
+			}
+		}
 
-                foreach (var attr in beforeAttrs)
-                {
-                    bootstrapObjectData.BeforeTypes.Add(attr.Type);
-                }
+		private static string GetHierarchyPath(string location)
+		{
+			var hierarchyPath = location.Substring(BootstrapSettings.Settings.BootstrapFolderAddress.Length + 1);
 
-                foreach (var attr in afterAttrs)
-                {
-                    bootstrapObjectData.AfterTypes.Add(attr.Type);
-                }
-            }
-        }
+			// Remove the filename, leaving only the folder structure (if any)
+			var lastSlashIndex = hierarchyPath.LastIndexOf('/');
+			return lastSlashIndex != -1 ? hierarchyPath.Substring(0, lastSlashIndex) : "";
+		}
 
-        static void SortObjectsByDependencies()
-        {
-            _bootstrapObjects = _bootstrapObjects.OrderBy(data => data.Order).ThenBy(data => data, new DependencyComparer(_bootstrapObjects)).ToList();
-        }
+		private static void GatherOrderAttributes(BootstrapObjectData bootstrapObjectData)
+		{
+			if (bootstrapObjectData.MainScriptType != null)
+			{
+				var orderAttr = (BootstrapOrderAttribute)Attribute.GetCustomAttribute(bootstrapObjectData.MainScriptType, typeof(BootstrapOrderAttribute));
+				bootstrapObjectData.Order = orderAttr?.Order ?? 0;
 
-        static void InstantiatePrefabs()
-        {
-            foreach (var data in _bootstrapObjects.OfType<PrefabObjectData>())
-            {
-                var instantiatedPrefab = GameObject.Instantiate(data.PrefabWithLocation.Asset, null);
-                instantiatedPrefab.name = data.PrefabWithLocation.Asset.name;
-                data.Object = instantiatedPrefab;
-                data.Transform = instantiatedPrefab.transform;
+				var beforeAttrs = bootstrapObjectData.MainScriptType.GetCustomAttributes(typeof(BootstrapBeforeAttribute), true).Cast<BootstrapBeforeAttribute>();
+				var afterAttrs = bootstrapObjectData.MainScriptType.GetCustomAttributes(typeof(BootstrapAfterAttribute), true).Cast<BootstrapAfterAttribute>();
 
-                var parentDirectory = _bootstrapObjects.OfType<DirectoryObjectData>()
-                    .FirstOrDefault(d => d.HierarchyPath == data.HierarchyPath);
+				foreach (var attr in beforeAttrs)
+				{
+					bootstrapObjectData.BeforeTypes.Add(attr.Type);
+				}
 
-                data.Transform.parent = parentDirectory?.Transform ?? _bootstrapRootObject.transform;
-            }
-        }
+				foreach (var attr in afterAttrs)
+				{
+					bootstrapObjectData.AfterTypes.Add(attr.Type);
+				}
+			}
+		}
 
-        // Reorder objects to match folder and file hierarchy
-        static void ReorderSpawnedTransforms()
-        {
-            // Group objects by their parent
-            var groupedObjects = _bootstrapObjects
-                .GroupBy(data => data.Transform.parent)
-                .ToList();
+		private static void SortObjectsByDependencies()
+		{
+			_bootstrapObjects = _bootstrapObjects.OrderBy(data => data.Order).ThenBy(data => data, new DependencyComparer(_bootstrapObjects)).ToList();
+		}
 
-            foreach (var group in groupedObjects)
-            {
-                // Separate folders and files within the same parent
-                var folders = group
-                    .Where(data => data is DirectoryObjectData) // Folders
-                    .OrderBy(data => data.Transform.name) // Sort folders alphabetically
-                    .ToList();
+		private static void InstantiatePrefabs()
+		{
+			foreach (var data in _bootstrapObjects.OfType<PrefabObjectData>())
+			{
+				var instantiatedPrefab = Object.Instantiate(data.PrefabWithLocation.Asset, null);
+				instantiatedPrefab.name = data.PrefabWithLocation.Asset.name;
+				data.Object = instantiatedPrefab;
+				data.Transform = instantiatedPrefab.transform;
 
-                var files = group
-                    .Where(data => data is PrefabObjectData) // Files
-                    .OrderBy(data => data.Transform.name) // Sort files alphabetically
-                    .ToList();
+				var parentDirectory = _bootstrapObjects.OfType<DirectoryObjectData>().FirstOrDefault(d => d.HierarchyPath == data.HierarchyPath);
 
-                // Combine folders and files, with folders first
-                var sortedObjects = folders.Concat(files).ToList();
+				data.Transform.parent = parentDirectory?.Transform ?? _bootstrapRootObject.transform;
+			}
+		}
 
-                // Apply the new order
-                for (int i = 0; i < sortedObjects.Count; i++)
-                {
-                    sortedObjects[i].Transform.SetSiblingIndex(i);
-                }
-            }
-        }
+		// Reorder objects to match folder and file hierarchy
+		private static void ReorderSpawnedTransforms()
+		{
+			// Group objects by their parent
+			var groupedObjects = _bootstrapObjects.GroupBy(data => data.Transform.parent).ToList();
 
-        public abstract class BootstrapObjectData
-        {
-            public GameObject Object;
-            public Transform Transform;
-            public string HierarchyPath;
-            public int Order;
-            public HashSet<Type> BeforeTypes = new HashSet<Type>();
-            public HashSet<Type> AfterTypes = new HashSet<Type>();
-            public Type MainScriptType;
-        }
+			foreach (var group in groupedObjects)
+			{
+				// Separate folders and files within the same parent
+				var folders = group.Where(data => data is DirectoryObjectData) // Folders
+					.OrderBy(data => data.Transform.name) // Sort folders alphabetically
+					.ToList();
 
-        public class PrefabObjectData : BootstrapObjectData
-        {
-            public AssetWithLocation<GameObject> PrefabWithLocation;
-        }
+				var files = group.Where(data => data is PrefabObjectData) // Files
+					.OrderBy(data => data.Transform.name) // Sort files alphabetically
+					.ToList();
 
-        public class DirectoryObjectData : BootstrapObjectData
-        {
-            public DirectoryObjectData ParentDirectoryObjectData;
-        }
+				// Combine folders and files, with folders first
+				var sortedObjects = folders.Concat(files).ToList();
 
-        private class DependencyComparer : IComparer<BootstrapObjectData>
-        {
-            private readonly List<BootstrapObjectData> _bootstrapObjectData;
-            private readonly Dictionary<Type, List<Type>> _dependencyGraph;
-            private readonly HashSet<Type> _visited;
-            private readonly HashSet<Type> _stack;
-            private readonly List<Type> _sortedTypes;
+				// Apply the new order
+				for (var i = 0; i < sortedObjects.Count; i++)
+				{
+					sortedObjects[i].Transform.SetSiblingIndex(i);
+				}
+			}
+		}
 
-            public DependencyComparer(List<BootstrapObjectData> bootstrapObjectData)
-            {
-                _bootstrapObjectData = bootstrapObjectData;
-                _dependencyGraph = new Dictionary<Type, List<Type>>();
-                _visited = new HashSet<Type>();
-                _stack = new HashSet<Type>();
-                _sortedTypes = new List<Type>();
+		public abstract class BootstrapObjectData
+		{
+			public HashSet<Type> AfterTypes = new();
+			public HashSet<Type> BeforeTypes = new();
+			public string HierarchyPath;
+			public Type MainScriptType;
+			public GameObject Object;
+			public int Order;
+			public Transform Transform;
+		}
 
-                BuildDependencyGraph();
-                TopologicalSort();
-            }
+		public class PrefabObjectData : BootstrapObjectData
+		{
+			public AssetWithLocation<GameObject> PrefabWithLocation;
+		}
 
-            public int Compare(BootstrapObjectData a, BootstrapObjectData b)
-            {
-                if (a.MainScriptType == null && b.MainScriptType == null) return 0;
-                if (a.MainScriptType == null) return -1;
-                if (b.MainScriptType == null) return 1;
+		public class DirectoryObjectData : BootstrapObjectData
+		{
+			public DirectoryObjectData ParentDirectoryObjectData;
+		}
 
-                if (a.MainScriptType == b.MainScriptType) return 0;
+		private class DependencyComparer : IComparer<BootstrapObjectData>
+		{
+			private readonly List<BootstrapObjectData> _bootstrapObjectData;
+			private readonly Dictionary<Type, List<Type>> _dependencyGraph;
+			private readonly List<Type> _sortedTypes;
+			private readonly HashSet<Type> _stack;
+			private readonly HashSet<Type> _visited;
 
-                int aIndex = _sortedTypes.IndexOf(a.MainScriptType);
-                int bIndex = _sortedTypes.IndexOf(b.MainScriptType);
+			public DependencyComparer(List<BootstrapObjectData> bootstrapObjectData)
+			{
+				_bootstrapObjectData = bootstrapObjectData;
+				_dependencyGraph = new Dictionary<Type, List<Type>>();
+				_visited = new HashSet<Type>();
+				_stack = new HashSet<Type>();
+				_sortedTypes = new List<Type>();
 
-                if (aIndex < bIndex) return -1;
-                if (aIndex > bIndex) return 1;
+				BuildDependencyGraph();
+				TopologicalSort();
+			}
 
-                return 0;
-            }
+			public int Compare(BootstrapObjectData a, BootstrapObjectData b)
+			{
+				if (a.MainScriptType == null && b.MainScriptType == null)
+				{
+					return 0;
+				}
 
-            private void BuildDependencyGraph()
-            {
-                foreach (var data in _bootstrapObjectData)
-                {
-                    var type = data.MainScriptType;
-                    if (type == null) continue;
+				if (a.MainScriptType == null)
+				{
+					return -1;
+				}
 
-                    if (!_dependencyGraph.ContainsKey(type))
-                        _dependencyGraph[type] = new List<Type>();
+				if (b.MainScriptType == null)
+				{
+					return 1;
+				}
 
-                    foreach (var beforeType in data.BeforeTypes)
-                    {
-                        if (!_dependencyGraph.ContainsKey(beforeType))
-                            _dependencyGraph[beforeType] = new List<Type>();
+				if (a.MainScriptType == b.MainScriptType)
+				{
+					return 0;
+				}
 
-                        _dependencyGraph[beforeType].Add(type);
-                    }
+				var aIndex = _sortedTypes.IndexOf(a.MainScriptType);
+				var bIndex = _sortedTypes.IndexOf(b.MainScriptType);
 
-                    foreach (var afterType in data.AfterTypes)
-                    {
-                        if (!_dependencyGraph.ContainsKey(type))
-                            _dependencyGraph[type] = new List<Type>();
+				if (aIndex < bIndex)
+				{
+					return -1;
+				}
 
-                        _dependencyGraph[type].Add(afterType);
-                    }
-                }
-            }
+				if (aIndex > bIndex)
+				{
+					return 1;
+				}
 
-            private void TopologicalSort()
-            {
-                foreach (var type in _dependencyGraph.Keys)
-                {
-                    if (!_visited.Contains(type))
-                        if (!DepthFirstSearch(type))
-                        {
-                            Debug.LogError("Circular dependency detected.");
-                            return;
-                        }
-                }
-            }
+				return 0;
+			}
 
-            private bool DepthFirstSearch(Type type)
-            {
-                _visited.Add(type);
-                _stack.Add(type);
+			private void BuildDependencyGraph()
+			{
+				foreach (var data in _bootstrapObjectData)
+				{
+					var type = data.MainScriptType;
+					if (type == null)
+					{
+						continue;
+					}
 
-                if (!_dependencyGraph.TryGetValue(type, out var dependencies))
-                {
-                    _sortedTypes.Add(type);
-                    return true;
-                }
+					if (!_dependencyGraph.ContainsKey(type))
+					{
+						_dependencyGraph[type] = new List<Type>();
+					}
 
-                foreach (var dependentType in dependencies)
-                {
-                    if (!_dependencyGraph.ContainsKey(dependentType))
-                    {
-                        Debug.LogError($"Type {dependentType} specified in dependency attributes is not present in the graph.");
-                        continue;
-                    }
+					foreach (var beforeType in data.BeforeTypes)
+					{
+						if (!_dependencyGraph.ContainsKey(beforeType))
+						{
+							_dependencyGraph[beforeType] = new List<Type>();
+						}
 
-                    if (!_visited.Contains(dependentType))
-                    {
-                        if (!DepthFirstSearch(dependentType))
-                            return false;
-                    }
-                    else if (_stack.Contains(dependentType))
-                    {
-                        return false; // Circular dependency detected
-                    }
-                }
+						_dependencyGraph[beforeType].Add(type);
+					}
 
-                _stack.Remove(type);
-                _sortedTypes.Add(type);
+					foreach (var afterType in data.AfterTypes)
+					{
+						if (!_dependencyGraph.ContainsKey(type))
+						{
+							_dependencyGraph[type] = new List<Type>();
+						}
 
-                return true;
-            }
-        }
-    }
+						_dependencyGraph[type].Add(afterType);
+					}
+				}
+			}
+
+			private void TopologicalSort()
+			{
+				foreach (var type in _dependencyGraph.Keys)
+				{
+					if (!_visited.Contains(type))
+					{
+						if (!DepthFirstSearch(type))
+						{
+							Debug.LogError("Circular dependency detected.");
+							return;
+						}
+					}
+				}
+			}
+
+			private bool DepthFirstSearch(Type type)
+			{
+				_visited.Add(type);
+				_stack.Add(type);
+
+				if (!_dependencyGraph.TryGetValue(type, out var dependencies))
+				{
+					_sortedTypes.Add(type);
+					return true;
+				}
+
+				foreach (var dependentType in dependencies)
+				{
+					if (!_dependencyGraph.ContainsKey(dependentType))
+					{
+						Debug.LogError($"Type {dependentType} specified in dependency attributes is not present in the graph.");
+						continue;
+					}
+
+					if (!_visited.Contains(dependentType))
+					{
+						if (!DepthFirstSearch(dependentType))
+						{
+							return false;
+						}
+					}
+					else if (_stack.Contains(dependentType))
+					{
+						return false; // Circular dependency detected
+					}
+				}
+
+				_stack.Remove(type);
+				_sortedTypes.Add(type);
+
+				return true;
+			}
+		}
+	}
 }
