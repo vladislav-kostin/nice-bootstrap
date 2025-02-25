@@ -2,7 +2,7 @@
 
 ## Description
 
-This package allows for easy decentralized bootsrap of your project and avoiding clutter of prefab hierarchies and scenes, minimizing potential merge conflicts when adding and editing features of your game game.
+This package allows for easy decentralized bootsrap of your project and avoiding clutter of prefab hierarchies and scenes, minimizing potential merge conflicts when adding and editing features of your game game. It spawns contents of an addressable bootstrap folder into the scene in a controlled order and with hierarchy mirroring the folder hierarchy.
 
 ## Setup
 
