@@ -2,7 +2,7 @@
 
 ## Description
 
-This package allows for easy decentralized bootsrap of your project and avoiding clutter of prefab hierarchies and scenes, minimizing potential merge conflicts when adding and editing features of your game game. It spawns contents of an addressable bootstrap folder into the scene in a controlled order and with hierarchy mirroring the folder hierarchy.
+This package allows for easy decentralized bootsrap of your project and avoiding clutter of prefab hierarchies and bootstrap scenes, minimizing potential merge conflicts when adding and editing features of your game. It spawns contents of an addressable bootstrap folder into the scene in a controlled order and with hierarchy mirroring the folder hierarchy.
 
 ## Setup
 
@@ -18,3 +18,8 @@ Use the following attributes to control the spawn and execution order of your sy
 - `[BootstrapAfter(typeof(T))]`
 
 The first script on the prefab that contains these attributes will determine its bootstrap order.
+
+## Screenshot
+![Screenshot 2025-02-27 193227](https://github.com/user-attachments/assets/b8e74039-03eb-4e47-bb8d-5c950cfd429c)
+
+
