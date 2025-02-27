@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEngine.AddressableAssets;
 using Object = UnityEngine.Object;
 
-namespace VK.Bootstrap
+namespace NiceBootstrap
 {
 	public static class BootstrapManager
 	{
@@ -58,7 +58,7 @@ namespace VK.Bootstrap
 				.OrderBy(path => path) // Sort folder paths alphabetically
 				.ToList();
 
-			if (allFolderPaths.Count == 0)
+			if (assetsWithLocations.Count == 0)
 			{
 				Debug.LogError($"No prefabs found in the given bootstrap address {BootstrapSettings.Settings.BootstrapFolderAddress}" +
 				               "Make sure that address in [Project Settings > Bootstrap Settings] matches your bootstrap folder address.");

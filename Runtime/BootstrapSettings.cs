@@ -1,7 +1,8 @@
-using UnityEngine;
+using System;
 using System.IO;
+using UnityEngine;
 
-namespace VK.Bootstrap
+namespace NiceBootstrap
 {
 	public static class BootstrapSettings
 	{
@@ -16,6 +17,7 @@ namespace VK.Bootstrap
 				{
 					LoadSettings();
 				}
+
 				return _settings;
 			}
 		}
@@ -24,7 +26,7 @@ namespace VK.Bootstrap
 		{
 			if (File.Exists(SettingsPath))
 			{
-				string json = File.ReadAllText(SettingsPath);
+				var json = File.ReadAllText(SettingsPath);
 				_settings = JsonUtility.FromJson<BootstrapSettingsData>(json);
 			}
 			else
@@ -36,16 +38,16 @@ namespace VK.Bootstrap
 
 		public static void SaveSettings()
 		{
-			string json = JsonUtility.ToJson(_settings, true);
+			var json = JsonUtility.ToJson(_settings, true);
 			Directory.CreateDirectory(Path.GetDirectoryName(SettingsPath));
 			File.WriteAllText(SettingsPath, json);
 		}
 	}
-	
-	[System.Serializable]
+
+	[Serializable]
 	public class BootstrapSettingsData
 	{
 		public string BootstrapFolderAddress = "Assets/Bootstrap";
-		public bool DontDestroyOnLoad = false;
+		public bool DontDestroyOnLoad;
 	}
 }

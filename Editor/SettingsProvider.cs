@@ -1,6 +1,6 @@
 using UnityEditor;
 
-namespace VK.Bootstrap
+namespace NiceBootstrap
 {
 	public static class BootstrapSettingsProvider
 	{

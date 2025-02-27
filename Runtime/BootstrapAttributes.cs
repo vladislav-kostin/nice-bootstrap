@@ -1,7 +1,5 @@
 ﻿using System;
 
-// namespace VK.Bootstrap
-// {
 [AttributeUsage(AttributeTargets.Class)]
 public class BootstrapBeforeAttribute : Attribute
 {
@@ -34,4 +32,3 @@ public class BootstrapOrderAttribute : Attribute
 
 	public int Order { get; private set; }
 }
-// }
